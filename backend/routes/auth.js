@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
+import Flat from '../models/Flat.js';
 import { protect } from '../middleware/auth.js';
 import sendEmail from '../utils/sendEmail.js';
 
@@ -31,6 +32,19 @@ router.post('/register', async (req, res) => {
         success: false,
         message: 'User already exists with this email'
       });
+    }
+
+    let flat = null;
+    if(!wing || !flatNo){
+      return res.status(400).json({ success: false,message: "Wing and Flat No are required for registeration"});
+    }
+
+    flat = await Flat.findOne({wing:wing.toUpperCase(),flatNo});
+
+    if(!flat) {
+      return res.status(400).json({success: false,
+        message: `Flat ${wing}-${flatNo} not found. Please contact admin to add this flat first.`
+      })
     }
 
     // Generate OTP

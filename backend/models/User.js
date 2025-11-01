@@ -15,11 +15,17 @@ const userSchema = new mongoose.Schema({
   },
   wing: {
     type: String,
-    required: true
+    required: function() { return this.role === 'resident'; },
+    set: function(wing) {
+      if (typeof wing === 'string') {
+        return wing.toUpperCase(); // Perfect for single letters
+      }
+      return wing;
+    }
   },
   flatNo: {
     type: String,
-    required: true
+    required: function() { return this.role === 'resident'; }
   },
   phoneNo: {
     type: String,
