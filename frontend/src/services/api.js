@@ -86,7 +86,12 @@ export const maintenanceAPI = {
   getAll: () => api.get('/api/maintenance'),
   create: (maintenanceData) => api.post('/api/maintenance', maintenanceData),
   createOrder: (id) => api.post(`/api/maintenance/${id}/create-order`),
-  verifyPayment: (id, paymentData) => api.post(`/api/maintenance/${id}/verify-payment`, paymentData)
+  simulatePayment: (id) => api.post(`/api/maintenance/${id}/simulate-payment`), // ADD THIS LINE
+  verifyPayment: (id, paymentData) => api.post(`/api/maintenance/${id}/verify-payment`, paymentData),
+  getById: (id) => api.get(`/api/maintenance/${id}`),
+  update: (id, maintenanceData) => api.put(`/api/maintenance/${id}`, maintenanceData),
+  delete: (id) => api.delete(`/api/maintenance/${id}`),
+  bulkCreate: (bills) => api.post('/api/maintenance/bulk', { bills })
 };
 
 export const memoryAPI = {
@@ -96,4 +101,10 @@ export const memoryAPI = {
   }),
   like: (id) => api.post(`/api/memory-lane/${id}/like`),
   comment: (id, text) => api.post(`/api/memory-lane/${id}/comment`, { text })
+};
+
+// Add user API if needed
+export const userAPI = {
+  getAll: () => api.get('/api/users'),
+  getResidents: () => api.get('/api/users?role=resident')
 };

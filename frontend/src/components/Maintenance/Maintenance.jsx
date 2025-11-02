@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
   CreditCard, Plus, Search, Filter, Download, 
-  Eye, CheckCircle, Clock, AlertTriangle, IndianRupee
+  Eye, CheckCircle, Clock, AlertTriangle, IndianRupee,
+  Users
 } from 'lucide-react';
 import { maintenanceAPI, flatAPI } from '../../services/api';
 import Button from '../Common/Button';
@@ -14,11 +15,15 @@ const Maintenance = () => {
   const [bills, setBills] = useState([]);
   const [flats, setFlats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [flatsLoading, setFlatsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [operationLoading, setOperationLoading] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(null);
 
   const [formData, setFormData] = useState({
     wing: '',
@@ -28,6 +33,15 @@ const Maintenance = () => {
     year: new Date().getFullYear(),
     dueDate: ''
   });
+
+  const [bulkFormData, setBulkFormData] = useState({
+    amount: '',
+    month: '',
+    year: new Date().getFullYear(),
+    dueDate: ''
+  });
+
+  const [selectedFlats, setSelectedFlats] = useState([]);
 
   useEffect(() => {
     fetchBills();
@@ -40,9 +54,12 @@ const Maintenance = () => {
     try {
       setLoading(true);
       const response = await maintenanceAPI.getAll();
-      console.log('Maintenance API response:', response);
       
-      const billsData = response?.data?.data || [];
+      let billsData = [];
+      if (response?.data) {
+        billsData = response.data.data || response.data.bills || response.data.maintenanceBills || response.data;
+      }
+      
       setBills(Array.isArray(billsData) ? billsData : []);
     } catch (error) {
       console.error('Error fetching maintenance bills:', error);
@@ -55,32 +72,135 @@ const Maintenance = () => {
 
   const fetchFlats = async () => {
     try {
-      const response = await flatAPI.getAll();
-      const flatsData = response?.data?.data || [];
+      setFlatsLoading(true);
+      
+      // Try multiple ways to fetch flats data
+      let flatsData = [];
+      
+      // Method 1: Try flatAPI first
+      try {
+        const response = await flatAPI.getAll();
+        console.log('📦 Flat API response:', response);
+        
+        if (response?.data) {
+          flatsData = response.data.data || response.data.flats || response.data;
+        }
+      } catch (apiError) {
+        console.log('❌ Flat API failed, trying direct fetch...');
+        
+        // Method 2: Try direct fetch
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch('http://localhost:5000/api/flats', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('📦 Direct fetch result:', result);
+            flatsData = result.data || result.flats || result;
+          }
+        } catch (fetchError) {
+          console.error('❌ Direct fetch failed:', fetchError);
+        }
+      }
+      
+      console.log('🎯 Final flats data:', flatsData);
+      console.log('👀 Sample flat:', flatsData[0]);
+      
       setFlats(Array.isArray(flatsData) ? flatsData : []);
+      
     } catch (error) {
-      console.error('Error fetching flats:', error);
+      console.error('❌ Error fetching flats:', error);
       toast.error('Failed to load flats data');
+      setFlats([]);
+    } finally {
+      setFlatsLoading(false);
     }
   };
 
+  // Get occupied flats
+  const occupiedFlats = flats.filter(flat => 
+    flat && flat.status === 'occupied'
+  );
+
+  console.log('✅ Occupied flats:', occupiedFlats);
+
+  // Get unique wings
+  const uniqueWings = [...new Set(occupiedFlats.map(flat => flat?.wing).filter(Boolean))];
+  console.log('🔄 Unique wings:', uniqueWings);
+
+  // Get flats by wing
+  const getFlatsByWing = (wing) => {
+    return occupiedFlats.filter(flat => flat?.wing === wing);
+  };
+
+  // Toggle flat selection for bulk generation
+  const toggleFlatSelection = (flat) => {
+    setSelectedFlats(prev => {
+      const isSelected = prev.some(f => f._id === flat._id);
+      if (isSelected) {
+        return prev.filter(f => f._id !== flat._id);
+      } else {
+        return [...prev, flat];
+      }
+    });
+  };
+
+  // Select all flats in a wing
+  const selectWingFlats = (wing) => {
+    const wingFlats = getFlatsByWing(wing);
+    setSelectedFlats(prev => {
+      const newFlats = wingFlats.filter(flat => !prev.some(f => f._id === flat._id));
+      return [...prev, ...newFlats];
+    });
+  };
+
+  // Deselect all flats in a wing
+  const deselectWingFlats = (wing) => {
+    setSelectedFlats(prev => prev.filter(flat => flat.wing !== wing));
+  };
+
+  // Select all flats
+  const selectAllFlats = () => {
+    setSelectedFlats([...occupiedFlats]);
+  };
+
+  // Deselect all flats
+  const deselectAllFlats = () => {
+    setSelectedFlats([]);
+  };
+
+  // Single bill generation
   const handleSubmit = async (e) => {
     e.preventDefault();
     setOperationLoading(true);
     
     try {
-      console.log('Submitting maintenance data:', formData);
-      
-      // Find the resident ID for the selected wing and flat
-      const selectedFlat = flats.find(flat => 
-        flat?.wing === formData.wing && flat?.flatNo === formData.flatNo
-      );
+      // For non-admin users, use their own info
+      if (user?.role !== 'admin') {
+        const maintenanceData = {
+          wing: user.wing,
+          flatNo: user.flatNo,
+          amount: parseFloat(formData.amount),
+          month: formData.month,
+          year: parseInt(formData.year),
+          dueDate: new Date(formData.dueDate)
+        };
 
-      if (!selectedFlat && user?.role === 'admin') {
-        toast.error('Please select a valid wing and flat number');
+        await maintenanceAPI.create(maintenanceData);
+        toast.success('Maintenance bill created successfully');
+        setShowModal(false);
+        resetForm();
+        fetchBills();
         return;
       }
 
+      // For admin users
       const maintenanceData = {
         wing: formData.wing,
         flatNo: formData.flatNo,
@@ -90,24 +210,10 @@ const Maintenance = () => {
         dueDate: new Date(formData.dueDate)
       };
 
-      // Only add residentId if it exists and user is admin
-      if (selectedFlat?.residentId && user?.role === 'admin') {
-        maintenanceData.residentId = selectedFlat.residentId;
-      }
-
-      console.log('Sending maintenance data:', maintenanceData);
-
       await maintenanceAPI.create(maintenanceData);
       toast.success('Maintenance bill created successfully');
       setShowModal(false);
-      setFormData({
-        wing: '',
-        flatNo: '',
-        amount: '',
-        month: '',
-        year: new Date().getFullYear(),
-        dueDate: ''
-      });
+      resetForm();
       fetchBills();
     } catch (error) {
       console.error('Create maintenance error:', error);
@@ -120,38 +226,214 @@ const Maintenance = () => {
     }
   };
 
-  const handlePayment = async (bill) => {
+  // Bulk bill generation
+  const handleBulkSubmit = async (e) => {
+    e.preventDefault();
+    setBulkLoading(true);
+    
     try {
-      // For demo purposes - simulate payment success
-      // In real implementation, you would integrate with Razorpay
-      toast.success('Payment simulation: Maintenance bill paid successfully!');
-      
-      // Update bill status locally for demo
-      setBills(prevBills => 
-        prevBills.map(b => 
-          b._id === bill._id 
-            ? { ...b, status: 'paid', paymentDate: new Date() }
-            : b
-        )
-      );
-      
-      // In real implementation, you would call:
-      // await maintenanceAPI.createOrder(bill._id);
-      // and handle Razorpay integration
+      if (selectedFlats.length === 0) {
+        toast.error('Please select at least one flat');
+        return;
+      }
+
+      const billsData = selectedFlats.map(flat => ({
+        wing: flat.wing,
+        flatNo: flat.flatNo,
+        amount: parseFloat(bulkFormData.amount),
+        month: bulkFormData.month,
+        year: parseInt(bulkFormData.year),
+        dueDate: new Date(bulkFormData.dueDate)
+      }));
+
+      // Create bills one by one
+      const promises = billsData.map(billData => maintenanceAPI.create(billData));
+      await Promise.all(promises);
+
+      toast.success(`Generated ${billsData.length} maintenance bills successfully`);
+      setShowBulkModal(false);
+      setSelectedFlats([]);
+      setBulkFormData({
+        amount: '',
+        month: '',
+        year: new Date().getFullYear(),
+        dueDate: ''
+      });
+      fetchBills();
     } catch (error) {
-      toast.error('Failed to process payment');
+      console.error('Bulk maintenance error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          'Failed to generate maintenance bills';
+      toast.error(errorMessage);
+    } finally {
+      setBulkLoading(false);
     }
   };
 
-  const filteredBills = Array.isArray(bills) ? bills.filter(bill => {
-    const wing = bill?.wing || '';
-    const flatNo = bill?.flatNo || '';
-    const residentName = bill?.residentId?.fullName || '';
+  // Simulated payment function
+  const handleSimulatedPayment = async (billId) => {
+    try {
+      setPaymentLoading(billId);
+      console.log('Using simulated payment for bill:', billId);
+      
+      await maintenanceAPI.simulatePayment(billId);
+      toast.success('Payment completed successfully! (Simulation)');
+      fetchBills();
+    } catch (error) {
+      console.error('Simulated payment error:', error);
+      toast.error('Simulated payment failed');
+    } finally {
+      setPaymentLoading(null);
+    }
+  };
+
+  // Main payment handler with Razorpay fallback to simulation
+  const handlePayment = async (bill) => {
+    try {
+      setPaymentLoading(bill._id);
+      console.log('Initiating payment for bill:', bill._id);
+
+      // Try Razorpay payment first
+      try {
+        console.log('Attempting Razorpay payment...');
+        const orderResponse = await maintenanceAPI.createOrder(bill._id);
+        const order = orderResponse.data;
+
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          
+          script.onload = async () => {
+            try {
+              const options = {
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_default',
+                amount: order.amount,
+                currency: order.currency,
+                name: 'Society Management System',
+                description: `Maintenance Bill - ${bill.month} ${bill.year}`,
+                order_id: order.id,
+                handler: async (response) => {
+                  try {
+                    await maintenanceAPI.verifyPayment(bill._id, response);
+                    toast.success('Payment successful!');
+                    fetchBills();
+                    resolve();
+                  } catch (error) {
+                    console.error('Payment verification failed:', error);
+                    toast.error('Payment verification failed');
+                    reject(error);
+                  }
+                },
+                prefill: {
+                  name: user?.fullName || '',
+                  email: user?.email || '',
+                  contact: user?.phoneNo || ''
+                },
+                theme: {
+                  color: '#10B981'
+                },
+                modal: {
+                  ondismiss: () => {
+                    console.log('Payment modal dismissed');
+                    toast.info('Payment cancelled');
+                    reject(new Error('Payment cancelled by user'));
+                  }
+                }
+              };
+
+              console.log('Opening Razorpay checkout...');
+              const razorpay = new window.Razorpay(options);
+              razorpay.open();
+              
+            } catch (razorpayError) {
+              console.error('Razorpay initialization error:', razorpayError);
+              reject(razorpayError);
+            }
+          };
+
+          script.onerror = () => {
+            console.error('Failed to load Razorpay script');
+            reject(new Error('Razorpay script load failed'));
+          };
+
+          document.body.appendChild(script);
+        });
+
+      } catch (razorpayError) {
+        console.log('Razorpay failed, falling back to simulation:', razorpayError);
+        
+        // Check if it's an authentication error or other Razorpay issue
+        const errorMessage = razorpayError.response?.data?.message || razorpayError.message;
+        
+        if (errorMessage.includes('Authentication') || 
+            errorMessage.includes('Razorpay') || 
+            errorMessage.includes('401') ||
+            errorMessage.includes('credentials')) {
+          
+          // Auto-fallback to simulation for authentication errors
+          console.log('Auto-falling back to simulated payment due to Razorpay auth error');
+          await handleSimulatedPayment(bill._id);
+          return;
+        } else {
+          // For other errors, ask user
+          const useSimulation = window.confirm(
+            `Payment gateway error: ${errorMessage}\n\nWould you like to simulate payment for testing?`
+          );
+          
+          if (useSimulation) {
+            await handleSimulatedPayment(bill._id);
+          } else {
+            throw new Error('Payment cancelled by user');
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Payment process error:', error);
+      
+      if (!error.message.includes('cancelled by user')) {
+        toast.error(error.response?.data?.message || 'Payment process failed');
+      }
+      
+    } finally {
+      setPaymentLoading(null);
+    }
+  };
+
+  // Quick payment button with simulation fallback
+  const handleQuickPayment = async (bill) => {
+    const useSimulation = window.confirm(
+      'Pay with simulated payment? (This is for testing without real payment gateway)'
+    );
     
-    return wing.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           flatNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           residentName.toLowerCase().includes(searchTerm.toLowerCase());
-  }) : [];
+    if (useSimulation) {
+      await handleSimulatedPayment(bill._id);
+    } else {
+      await handlePayment(bill);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      wing: '',
+      flatNo: '',
+      amount: '',
+      month: '',
+      year: new Date().getFullYear(),
+      dueDate: ''
+    });
+  };
+
+  const filteredBills = bills.filter(bill => {
+    const matchesSearch = 
+      bill?.wing?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill?.flatNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill?.residentId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterStatus === 'all' || bill?.status === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -171,20 +453,6 @@ const Maintenance = () => {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  // Get unique wings and flats for dropdown
-  const uniqueWings = [...new Set(flats.map(flat => flat?.wing).filter(Boolean))];
-  const getFlatsByWing = (wing) => {
-    return flats.filter(flat => flat?.wing === wing && flat?.status === 'occupied');
-  };
-
   if (loading) {
     return <LoadingSpinner text="Loading maintenance bills..." />;
   }
@@ -200,13 +468,21 @@ const Maintenance = () => {
           </p>
         </div>
         {user?.role === 'admin' && (
-          <Button
-            onClick={() => setShowModal(true)}
-            className="mt-4 sm:mt-0"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Generate Bill
-          </Button>
+          <div className="flex space-x-3 mt-4 sm:mt-0">
+            <Button
+              onClick={() => setShowBulkModal(true)}
+              variant="outline"
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Bulk Generate
+            </Button>
+            <Button
+              onClick={() => setShowModal(true)}
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Single Bill
+            </Button>
+          </div>
         )}
       </div>
 
@@ -328,13 +604,28 @@ const Maintenance = () => {
                           </>
                         ) : (
                           bill?.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handlePayment(bill)}
-                            >
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Pay Now
-                            </Button>
+                            <div className="flex flex-col space-y-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handlePayment(bill)}
+                                loading={paymentLoading === bill._id}
+                                disabled={paymentLoading}
+                              >
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                Pay Now
+                              </Button>
+                              {/* <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleQuickPayment(bill)}
+                                loading={paymentLoading === bill._id}
+                                disabled={paymentLoading}
+                                className="text-xs"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Simulate Pay
+                              </Button> */}
+                            </div>
                           )
                         )}
                         {bill?.status === 'paid' && (
@@ -362,12 +653,14 @@ const Maintenance = () => {
         )}
       </div>
 
-      {/* Generate Bill Modal */}
+      {/* Single Bill Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 rounded-2xl border border-emerald-800/30 w-full max-w-md">
             <div className="p-6 border-b border-emerald-800/30">
-              <h2 className="text-xl font-bold text-white">Generate Maintenance Bill</h2>
+              <h2 className="text-xl font-bold text-white">
+                {user?.role === 'admin' ? 'Generate Maintenance Bill' : 'Request Maintenance Bill'}
+              </h2>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -394,6 +687,12 @@ const Maintenance = () => {
                         <option key={wing} value={wing}>{wing}</option>
                       ))}
                     </select>
+                    {flatsLoading && (
+                      <p className="text-gray-400 text-sm mt-1">Loading wings...</p>
+                    )}
+                    {!flatsLoading && uniqueWings.length === 0 && (
+                      <p className="text-orange-400 text-sm mt-1">No occupied flats found</p>
+                    )}
                   </div>
 
                   <div>
@@ -405,7 +704,7 @@ const Maintenance = () => {
                       value={formData.flatNo}
                       onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      disabled={!formData.wing}
+                      disabled={!formData.wing || getFlatsByWing(formData.wing).length === 0}
                     >
                       <option value="">Select Flat</option>
                       {getFlatsByWing(formData.wing).map(flat => (
@@ -414,6 +713,9 @@ const Maintenance = () => {
                         </option>
                       ))}
                     </select>
+                    {formData.wing && getFlatsByWing(formData.wing).length === 0 && (
+                      <p className="text-orange-400 text-sm mt-1">No flats found in this wing</p>
+                    )}
                   </div>
                 </>
               ) : (
@@ -426,10 +728,9 @@ const Maintenance = () => {
                       <input
                         type="text"
                         required
-                        value={formData.wing}
-                        onChange={(e) => setFormData({ ...formData, wing: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        placeholder="A, B, C..."
+                        value={user?.wing || ''}
+                        disabled
+                        className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-300"
                       />
                     </div>
 
@@ -440,10 +741,9 @@ const Maintenance = () => {
                       <input
                         type="text"
                         required
-                        value={formData.flatNo}
-                        onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        placeholder="101, 202..."
+                        value={user?.flatNo || ''}
+                        disabled
+                        className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-300"
                       />
                     </div>
                   </div>
@@ -520,25 +820,223 @@ const Maintenance = () => {
                   loading={operationLoading}
                   disabled={operationLoading}
                 >
-                  Generate Bill
+                  {user?.role === 'admin' ? 'Generate Bill' : 'Request Bill'}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
                     setShowModal(false);
-                    setFormData({
-                      wing: '',
-                      flatNo: '',
-                      amount: '',
-                      month: '',
-                      year: new Date().getFullYear(),
-                      dueDate: ''
-                    });
+                    resetForm();
                   }}
                 >
                   Cancel
                 </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Generation Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 rounded-2xl border border-emerald-800/30 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-emerald-800/30">
+              <h2 className="text-xl font-bold text-white">Bulk Generate Maintenance Bills</h2>
+              <p className="text-gray-400 mt-1">Generate bills for multiple residents at once</p>
+            </div>
+
+            <form onSubmit={handleBulkSubmit} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Amount (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={bulkFormData.amount}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, amount: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Enter amount"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Month *
+                  </label>
+                  <select
+                    required
+                    value={bulkFormData.month}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, month: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">Select Month</option>
+                    {[
+                      'January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'
+                    ].map(month => (
+                      <option key={month} value={month}>{month}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Year *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={bulkFormData.year}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, year: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="2024"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Due Date *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={bulkFormData.dueDate}
+                  onChange={(e) => setBulkFormData({ ...bulkFormData, dueDate: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Flats Selection */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Select Flats</h3>
+                  <div className="flex space-x-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={selectAllFlats}
+                      disabled={occupiedFlats.length === 0}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={deselectAllFlats}
+                    >
+                      Deselect All
+                    </Button>
+                  </div>
+                </div>
+
+                {flatsLoading && (
+                  <div className="text-center py-8">
+                    <LoadingSpinner text="Loading flats..." />
+                  </div>
+                )}
+
+                {!flatsLoading && occupiedFlats.length === 0 && (
+                  <div className="text-center py-8 border border-gray-700 rounded-lg">
+                    <Users className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                    <p className="text-gray-400">No occupied flats found</p>
+                    <p className="text-gray-500 text-sm mt-1">Add residents to flats first</p>
+                  </div>
+                )}
+
+                {!flatsLoading && occupiedFlats.length > 0 && (
+                  <div className="space-y-4">
+                    {uniqueWings.map(wing => (
+                      <div key={wing} className="border border-gray-700 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-md font-medium text-white">Wing {wing}</h4>
+                          <div className="flex space-x-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => selectWingFlats(wing)}
+                            >
+                              Select Wing
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => deselectWingFlats(wing)}
+                            >
+                              Deselect Wing
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {getFlatsByWing(wing).map(flat => (
+                            <div
+                              key={flat._id}
+                              className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                                selectedFlats.some(f => f._id === flat._id)
+                                  ? 'bg-emerald-900/30 border-emerald-500'
+                                  : 'bg-gray-800 border-gray-600 hover:border-gray-500'
+                              }`}
+                              onClick={() => toggleFlatSelection(flat)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-white font-medium">
+                                    {flat.flatNo}
+                                  </div>
+                                  <div className="text-gray-400 text-sm">
+                                    {flat.ownerName}
+                                  </div>
+                                </div>
+                                {selectedFlats.some(f => f._id === flat._id) && (
+                                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-gray-300">
+                  Selected: <span className="text-emerald-400 font-semibold">{selectedFlats.length}</span> flats
+                </div>
+                <div className="flex space-x-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowBulkModal(false);
+                      setSelectedFlats([]);
+                      setBulkFormData({
+                        amount: '',
+                        month: '',
+                        year: new Date().getFullYear(),
+                        dueDate: ''
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    loading={bulkLoading}
+                    disabled={bulkLoading || selectedFlats.length === 0}
+                  >
+                    Generate {selectedFlats.length} Bills
+                  </Button>
+                </div>
               </div>
             </form>
           </div>

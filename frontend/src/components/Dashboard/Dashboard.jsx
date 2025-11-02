@@ -45,6 +45,8 @@ const Dashboard = () => {
       const complaints = complaintsRes.status === 'fulfilled' ? complaintsRes.value?.data?.data || [] : [];
       const maintenance = maintenanceRes.status === 'fulfilled' ? maintenanceRes.value?.data?.data || [] : [];
 
+      console.log('📊 Maintenance data for dashboard:', maintenance); // Debug log
+
       // Calculate stats safely
       const totalFlats = Array.isArray(flats) ? flats.length : 0;
       const occupiedFlats = Array.isArray(flats) ? flats.filter(flat => flat?.status === 'occupied').length : 0;
@@ -52,9 +54,16 @@ const Dashboard = () => {
       const pendingComplaints = Array.isArray(complaints) ? 
         complaints.filter(comp => comp?.status === 'pending').length : 0;
       
+      // ✅ FIXED: Properly check residentId for unpaid maintenance
       const unpaidMaintenance = user?.role === 'admin' 
         ? (Array.isArray(maintenance) ? maintenance.filter(m => m?.status === 'pending').length : 0)
-        : (Array.isArray(maintenance) ? maintenance.filter(m => m?.residentId === user?.id && m?.status === 'pending').length : 0);
+        : (Array.isArray(maintenance) ? maintenance.filter(m => {
+            // Check both possible structures: m.residentId (ObjectId) or m.residentId._id
+            const residentId = m?.residentId?._id || m?.residentId;
+            return residentId === user?.id && m?.status === 'pending';
+          }).length : 0);
+
+      console.log('💰 Unpaid maintenance count:', unpaidMaintenance); // Debug log
 
       setStats({
         totalFlats,
