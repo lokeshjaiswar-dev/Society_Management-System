@@ -23,21 +23,47 @@ const Login = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   setLoading(true);
 
+  //   const result = await login(formData.email, formData.password);
+    
+  //   if (result.success) {
+  //     toast.success('Login successful!');
+  //     navigate('/dashboard');
+  //   } else {
+  //     toast.error(result.message);
+  //   }
+    
+  //   setLoading(false);
+  // };
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      toast.success('Login successful!');
-      navigate('/dashboard');
+      toast.success('Login successful! Redirecting...');
+      
+      // Force a small delay to ensure state is fully updated
+      setTimeout(() => {
+        // Use window.location for guaranteed redirect
+        window.location.href = '/dashboard';
+      }, 800);
     } else {
-      toast.error(result.message);
+      toast.error(result.message || 'Login failed');
     }
-    
+  } catch (error) {
+    console.error('Login error:', error);
+    toast.error('Login failed. Please try again.');
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-bg">
