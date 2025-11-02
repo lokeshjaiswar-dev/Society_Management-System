@@ -95,14 +95,31 @@ const Flats = () => {
     }
   };
 
-  const filteredFlats = Array.isArray(flats) ? flats.filter(flat => {
+const filteredFlats = Array.isArray(flats) ? flats
+  .filter(flat => {
     const wing = flat?.wing || '';
     const flatNo = flat?.flatNo || '';
     const ownerName = flat?.ownerName || '';
     
-    return wing.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           flatNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           ownerName.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Improved search: search by wing only, wing+flat, or owner name
+    return wing.toLowerCase().includes(searchLower) ||
+           `${wing}-${flatNo}`.toLowerCase().includes(searchLower) ||
+           ownerName.toLowerCase().includes(searchLower);
+  })
+  .sort((a, b) => {
+    // Sort by wing first, then by flat number numerically
+    const wingCompare = (a.wing || '').localeCompare(b.wing || '');
+    if (wingCompare !== 0) return wingCompare;
+    
+    // Extract numbers from flat numbers for proper numerical sorting
+    const getFlatNumber = (flatNo) => {
+      const match = (flatNo || '').match(/\d+/);
+      return match ? parseInt(match[0]) : 0;
+    };
+    
+    return getFlatNumber(a.flatNo) - getFlatNumber(b.flatNo);
   }) : [];
 
   if (loading) {
@@ -180,15 +197,32 @@ const Flats = () => {
       <div className="bg-black/50 backdrop-blur-lg rounded-xl p-4 border border-emerald-800/30">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search by wing, flat number, or owner name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-          />
+            <input
+              type="text"
+              placeholder="Search by wing (A), wing+flat (A-101), or owner name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
         </div>
       </div>
+
+      {/* Quick Wing Filters
+        <div className="flex flex-wrap gap-2 mt-3">
+          {['All', 'A', 'B', 'C', 'D', 'E'].map(wing => (
+            <button
+              key={wing}
+              onClick={() => setSearchTerm(wing === 'All' ? '' : wing)}
+              className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                (wing === 'All' && !searchTerm) || searchTerm === wing
+                  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/30'
+                  : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-600'
+              }`}
+            >
+              {wing}
+            </button>
+          ))}
+        </div> */}
 
       {/* Flats Table */}
       <div className="bg-black/50 backdrop-blur-lg rounded-xl border border-emerald-800/30 overflow-hidden">
