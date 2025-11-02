@@ -37,7 +37,13 @@ const maintenanceSchema = new mongoose.Schema({
   },
   razorpayOrderId: String,
   razorpayPaymentId: String,
-  paymentDate: Date
+  razorpayOrderDetails: mongoose.Schema.Types.Mixed, // ADD THIS
+  paymentDate: Date,
+  paymentStatus: { // ADD THIS FIELD
+    type: String,
+    enum: ['authorized', 'captured', 'failed', 'pending'],
+    default: 'pending'
+  }
 }, {
   timestamps: true
 });
