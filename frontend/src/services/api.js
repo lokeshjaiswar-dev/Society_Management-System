@@ -121,7 +121,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // Add 10 second timeout for production
+  timeout: 30000, // Increased to 30 seconds for Render's free tier cold starts
 });
 
 // Add request interceptor to include auth token
@@ -141,13 +141,31 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor
+// Add response interceptor with better error handling
 api.interceptors.response.use(
   (response) => {
-    console.log('Response received:', response);
+    console.log('Response received:', response.status, response.config.url);
     return response;
   },
   (error) => {
+    // Handle timeout errors specifically
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      console.error('Request timeout - Backend is slow to respond:', error.config.url);
+      return Promise.reject({
+        message: 'Server is taking too long to respond. Please try again.',
+        isTimeout: true
+      });
+    }
+
+    // Handle network errors
+    if (!error.response) {
+      console.error('Network error - Backend might be down:', error.message);
+      return Promise.reject({
+        message: 'Cannot connect to server. Please check your internet connection.',
+        isNetworkError: true
+      });
+    }
+
     console.error('API Error:', {
       url: error.config?.url,
       method: error.config?.method,
@@ -156,11 +174,14 @@ api.interceptors.response.use(
       message: error.message
     });
     
+    // Handle 401 Unauthorized
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // Don't redirect automatically to avoid loops in production
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      // Only redirect if not already on login page
+      if (window.location.pathname !== '/login' && !window.location.pathname.includes('/register')) {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
       }
     }
     
@@ -168,7 +189,7 @@ api.interceptors.response.use(
   }
 );
 
-// Update all API endpoints - include /api in each endpoint
+// Auth API endpoints
 export const authAPI = {
   login: (email, password) => api.post('/api/auth/login', { email, password }),
   register: (userData) => api.post('/api/auth/register', userData),
@@ -176,6 +197,7 @@ export const authAPI = {
   getMe: () => api.get('/api/auth/me')
 };
 
+// Flat API endpoints
 export const flatAPI = {
   getAll: () => api.get('/api/flats'),
   create: (flatData) => api.post('/api/flats', flatData),
@@ -183,6 +205,7 @@ export const flatAPI = {
   delete: (id) => api.delete(`/api/flats/${id}`)
 };
 
+// Notice API endpoints
 export const noticeAPI = {
   getAll: () => api.get('/api/notices'),
   create: (noticeData) => api.post('/api/notices', noticeData),
@@ -190,6 +213,7 @@ export const noticeAPI = {
   delete: (id) => api.delete(`/api/notices/${id}`)
 };
 
+// Complaint API endpoints
 export const complaintAPI = {
   getAll: () => api.get('/api/complaints'),
   create: (formData) => api.post('/api/complaints', formData, {
@@ -198,6 +222,7 @@ export const complaintAPI = {
   update: (id, complaintData) => api.put(`/api/complaints/${id}`, complaintData)
 };
 
+// Maintenance API endpoints
 export const maintenanceAPI = {
   getAll: () => api.get('/api/maintenance'),
   create: (maintenanceData) => api.post('/api/maintenance', maintenanceData),
@@ -211,6 +236,7 @@ export const maintenanceAPI = {
   bulkCreate: (bills) => api.post('/api/maintenance/bulk', { bills })
 };
 
+// Memory Lane API endpoints
 export const memoryAPI = {
   getAll: () => api.get('/api/memory-lane'),
   create: (formData) => api.post('/api/memory-lane', formData, {
@@ -220,10 +246,15 @@ export const memoryAPI = {
   comment: (id, text) => api.post(`/api/memory-lane/${id}/comment`, { text })
 };
 
-// Add user API if needed
+// User API endpoints
 export const userAPI = {
   getAll: () => api.get('/api/users'),
   getResidents: () => api.get('/api/users?role=resident')
+};
+
+// Health check endpoint
+export const healthAPI = {
+  check: () => api.get('/health', { timeout: 10000 }) // Shorter timeout for health check
 };
 
 export default api;
