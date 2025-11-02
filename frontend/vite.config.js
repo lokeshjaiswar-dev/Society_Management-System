@@ -1,3 +1,25 @@
+// import { defineConfig } from 'vite'
+// import react from '@vitejs/plugin-react'
+// import tailwindcss from '@tailwindcss/vite'
+
+// // https://vite.dev/config/
+// export default defineConfig({
+//   plugins: [
+//     react(),
+//     tailwindcss()
+//   ],
+//   server: {
+//     port: 5173,
+//     proxy: {
+//       '/api': {
+//         // target: 'http://localhost:5000',
+//         target:"https://society-backend-9n7y.onrender.com",
+//         changeOrigin: true
+//       }
+//     }
+//   }
+// })
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -12,10 +34,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        // target: 'http://localhost:5000',
-        target:"https://society-backend-9n7y.onrender.com",
+        target: 'https://society-backend-9n7y.onrender.com',
         changeOrigin: true
       }
     }
+  },
+  // Add build configuration for production
+  build: {
+    outDir: 'dist',
+    sourcemap: false, // Disable sourcemaps in production for better performance
   }
 })
