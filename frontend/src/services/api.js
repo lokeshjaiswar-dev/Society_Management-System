@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Use explicit API URL without /api since we're adding it in the endpoints
-const API_BASE_URL = 'http://localhost:5000';
+// const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://society-backend-9n7y.onrender.com';
 
 // Create axios instance with base URL
 const api = axios.create({
