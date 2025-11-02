@@ -77,7 +77,7 @@ const sendEmail = async (options) => {
       <body>
         <div class="email-container">
           <div class="header">
-            <h2>🏢 Society Management System</h2>
+            <h2>🏢 SocietyPro</h2>
             <h3>${options.subject}</h3>
           </div>
           
@@ -96,7 +96,7 @@ const sendEmail = async (options) => {
           </div>
           
           <div class="footer">
-            <p>© ${new Date().getFullYear()} Society Management System</p>
+            <p>© ${new Date().getFullYear()} SocietyPro</p>
             <p>This is an automated message</p>
           </div>
         </div>
@@ -105,7 +105,7 @@ const sendEmail = async (options) => {
     `;
 
     const mailOptions = {
-      from: `Society Management System <${process.env.EMAIL_USERNAME}>`,
+      from: `SocietyPro <${process.env.EMAIL_USERNAME}>`,
       to: options.email,
       subject: options.subject,
       text: options.message,

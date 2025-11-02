@@ -477,7 +477,7 @@ const MainPage = () => {
               <div className="flex space-x-4">
                 <div className="flex items-center space-x-2 text-gray-400">
                   <MapPin className="w-4 h-4" />
-                  <span className="text-sm">123 Society Lane, City</span>
+                  <span className="text-sm">Mumbai-86, Maharashtra</span>
                 </div>
               </div>
             </div>
@@ -488,11 +488,11 @@ const MainPage = () => {
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Phone className="w-4 h-4" />
-                  <span className="text-sm">+1 (555) 123-4567</span>
+                  <span className="text-sm">+91 9699432919</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-400">
                   <Mail className="w-4 h-4" />
-                  <span className="text-sm">info@societypro.com</span>
+                  <span className="text-sm">lokeshjaiswar.dev@gmail.com</span>
                 </div>
               </div>
             </div>
@@ -530,12 +530,12 @@ const MainPage = () => {
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-emerald-800/30 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+          <div className="border-t border-emerald-800/30 mt-12 pt-12 flex flex-col justify-center items-center text-center">
             <p className="text-gray-400 text-sm">
               © 2024 Society Pro. All rights reserved.
             </p>
-            <p className="text-emerald-400 text-sm mt-2 md:mt-0">
-              Developed with ❤️ for better community living
+            <p className="text-emerald-400 text-sm mt-2">
+              Developed with ❤️ by Lokesh
             </p>
           </div>
         </div>
