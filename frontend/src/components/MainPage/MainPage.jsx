@@ -531,10 +531,10 @@ const MainPage = () => {
 
           {/* Bottom Bar */}
           <div className="border-t border-emerald-800/30 mt-12 pt-12 flex flex-col justify-center items-center text-center">
-            <p className="text-emerald-400 text-sm mt-2">
+            <p className="text-emerald-400 text-sm ">
               Developed with ❤️ by Lokesh
             </p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-sm mt-2">
               © 2025 Society Pro. All rights reserved.
             </p>
           </div>
