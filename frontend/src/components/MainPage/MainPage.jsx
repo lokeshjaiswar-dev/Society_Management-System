@@ -534,7 +534,7 @@ const MainPage = () => {
             <p className="text-emerald-400 text-sm ">
               Developed with ❤️ by Lokesh
             </p>
-            <p className="text-gray-400 text-sm mt-2">
+            <p className="text-gray-400 text-sm mt-4">
               © 2025 Society Pro. All rights reserved.
             </p>
           </div>
