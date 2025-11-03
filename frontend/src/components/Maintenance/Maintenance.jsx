@@ -50,118 +50,41 @@ const Maintenance = () => {
     }
   }, [user]);
 
-  // const fetchBills = async () => {
-  //   try {
-  //     setLoading(true);
-  //     const response = await maintenanceAPI.getAll();
+  const fetchBills = async () => {
+    try {
+      setLoading(true);
+      const response = await maintenanceAPI.getAll();
       
-  //     let billsData = [];
-  //     if (response?.data) {
-  //       billsData = response.data.data || response.data.bills || response.data.maintenanceBills || response.data;
-  //     }
+      let billsData = [];
       
-  //     setBills(Array.isArray(billsData) ? billsData : []);
-  //   } catch (error) {
-  //     console.error('Error fetching maintenance bills:', error);
-  //     toast.error('Failed to load maintenance bills');
-  //     setBills([]);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-const fetchBills = async () => {
-  try {
-    setLoading(true);
-    const response = await maintenanceAPI.getAll();
-    
-    console.log('🔍 MAINTENANCE API RAW RESPONSE:', response);
-    
-    let billsData = [];
-    
-    // ✅ FIXED: Properly extract the data
-    if (response?.data?.success) {
-      billsData = response.data.data; // This should be the array
-    }
-    
-    console.log('📊 EXTRACTED BILLS DATA:', billsData);
-    console.log('👤 CURRENT USER ID:', user?.id);
-    
-    // ✅ FIXED: Simple filtering - only match by residentId
-    if (user?.role !== 'admin') {
-      const userBills = billsData.filter(bill => {
-        if (!bill?.residentId) return false;
-        
-        // Direct residentId comparison (no wing/flat matching needed)
-        const residentId = bill.residentId;
-        const residentIdStr = residentId._id ? residentId._id.toString() : residentId.toString();
-        const userIdStr = user?.id?.toString();
-        
-        const matches = residentIdStr === userIdStr;
-        
-        console.log('🔍 Bill Match Check:', {
-          billId: bill._id,
-          billResidentId: residentIdStr,
-          currentUserId: userIdStr,
-          matches: matches
+      if (response?.data?.success) {
+        billsData = response.data.data;
+      }
+      
+      if (user?.role !== 'admin') {
+        const userBills = billsData.filter(bill => {
+          if (!bill?.residentId) return false;
+          
+          const residentId = bill.residentId;
+          const residentIdStr = residentId._id ? residentId._id.toString() : residentId.toString();
+          const userIdStr = user?.id?.toString();
+          
+          return residentIdStr === userIdStr;
         });
         
-        return matches;
-      });
+        setBills(Array.isArray(userBills) ? userBills : []);
+      } else {
+        setBills(Array.isArray(billsData) ? billsData : []);
+      }
       
-      console.log('✅ FILTERED USER BILLS:', userBills);
-      setBills(Array.isArray(userBills) ? userBills : []);
-    } else {
-      // Admin sees all bills
-      setBills(Array.isArray(billsData) ? billsData : []);
+    } catch (error) {
+      console.error('Error fetching maintenance bills:', error);
+      toast.error('Failed to load maintenance bills');
+      setBills([]);
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (error) {
-    console.error('❌ Error fetching maintenance bills:', error);
-    toast.error('Failed to load maintenance bills');
-    setBills([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-// // Add this to your Maintenance component
-// useEffect(() => {
-//   console.log('🔐 CURRENT USER DETAILS:', {
-//     id: user?.id,
-//     fullName: user?.fullName,
-//     email: user?.email, 
-//     wing: user?.wing,
-//     flatNo: user?.flatNo,
-//     role: user?.role
-//   });
-  
-//   fetchBills();
-// }, [user]);
-
-// // Temporary test in your Maintenance component
-// const checkAllUsers = async () => {
-//   try {
-//     const token = localStorage.getItem('token');
-//     const response = await fetch('https://society-backend-9n7y.onrender.com/api/maintenance/debug/users', {
-//       headers: {
-//         'Authorization': `Bearer ${token}`,
-//         'Content-Type': 'application/json'
-//       }
-//     });
-    
-//     const data = await response.json();
-//     console.log('🔍 ALL USERS:', data);
-//   } catch (error) {
-//     console.error('Debug users error:', error);
-//   }
-// };
-
-// Call it in useEffect
-useEffect(() => {
-  checkAllUsers(); // Add this
-  fetchBills();
-}, [user]);
+  };
 
   const fetchFlats = async () => {
     try {
@@ -175,59 +98,20 @@ useEffect(() => {
         if (response?.data) {
           flatsData = response.data.data || response.data.flats || response.data;
         }
-      } catch (apiError) {
-        console.log('❌ Flat API failed, trying direct fetch...');
-        
-        try {
-          const token = localStorage.getItem('token');
-          const response = await fetch('http://localhost:5000/api/flats', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            flatsData = result.data || result.flats || result;
-          }
-        } catch (fetchError) {
-          console.error('❌ Direct fetch failed:', fetchError);
-        }
+      } catch (error) {
+        console.error('Error fetching flats:', error);
       }
       
       setFlats(Array.isArray(flatsData) ? flatsData : []);
       
     } catch (error) {
-      console.error('❌ Error fetching flats:', error);
+      console.error('Error fetching flats:', error);
       toast.error('Failed to load flats data');
       setFlats([]);
     } finally {
       setFlatsLoading(false);
     }
   };
-
-  // Manual verification fallback
-// FIXED: Manual verification fallback
-const manualVerifyPayment = async (billId, paymentData) => {
-  try {
-    if (import.meta.env.MODE === 'production') {
-      throw new Error('Manual verification not allowed in production');
-    }
-
-    console.log('🛠️ Manual verification attempt:', { billId, paymentData });
-    
-    const response = await maintenanceAPI.simulatePayment(billId);
-    console.log('✅ Manual verification successful:', response);
-    toast.success('Payment marked as successful! (Development Mode)');
-    fetchBills();
-    return response;
-  } catch (error) {
-    console.error('❌ Manual verification failed:', error);
-    throw error;
-  }
-};
 
   // Get occupied flats
   const occupiedFlats = flats.filter(flat => 
@@ -374,8 +258,6 @@ const manualVerifyPayment = async (billId, paymentData) => {
   const handleSimulatedPayment = async (billId) => {
     try {
       setPaymentLoading(billId);
-      console.log('Using simulated payment for bill:', billId);
-      
       await maintenanceAPI.simulatePayment(billId);
       toast.success('Payment completed successfully! (Simulation)');
       fetchBills();
@@ -387,138 +269,111 @@ const manualVerifyPayment = async (billId, paymentData) => {
     }
   };
 
-// FIXED: Simplified and robust payment handler
-const handlePayment = async (bill) => {
-  try {
-    setPaymentLoading(bill._id);
-    console.log('Initiating payment for bill:', bill._id);
+  const handlePayment = async (bill) => {
+    try {
+      setPaymentLoading(bill._id);
 
-    const orderResponse = await maintenanceAPI.createOrder(bill._id);
-    const order = orderResponse.data;
+      const orderResponse = await maintenanceAPI.createOrder(bill._id);
+      const order = orderResponse.data;
 
-    console.log('✅ Order created:', order);
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        
+        script.onload = async () => {
+          try {
+            const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+            
+            if (!razorpayKey) {
+              throw new Error('Razorpay key not configured');
+            }
 
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      
-      script.onload = async () => {
-        try {
-          const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-          
-          if (!razorpayKey) {
-            throw new Error('Razorpay key not configured');
-          }
-
-          const options = {
-            key: razorpayKey,
-            amount: order.amount,
-            currency: order.currency,
-            name: 'Society Management System',
-            description: `Maintenance Bill - ${bill.month} ${bill.year}`,
-            order_id: order.id,
-            handler: async (response) => {
-              try {
-                console.log('💰 Razorpay Response:', response);
-                
-                // Check if we have payment ID
-                if (!response.razorpay_payment_id) {
-                  throw new Error('No payment ID received');
-                }
-
-                console.log('🔄 Payment completed, proceeding with verification...');
-
-                // Prepare verification data
-                const verificationData = {
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id || order.id,
-                  razorpay_signature: response.razorpay_signature || 'payment_verified'
-                };
-
-                console.log('📤 Sending verification data:', verificationData);
-
+            const options = {
+              key: razorpayKey,
+              amount: order.amount,
+              currency: order.currency,
+              name: 'Society Management System',
+              description: `Maintenance Bill - ${bill.month} ${bill.year}`,
+              order_id: order.id,
+              handler: async (response) => {
                 try {
-                  // Try verification first
-                  const verifyResponse = await maintenanceAPI.verifyPayment(bill._id, verificationData);
-                  console.log('✅ Payment verified successfully:', verifyResponse.data);
-                  toast.success('Payment successful!');
-                  fetchBills();
-                  resolve();
-                  
-                } catch (verifyError) {
-                  console.log('❌ Verification failed, using simulate payment as fallback...');
-                  
-                  // Fallback to simulate payment
+                  if (!response.razorpay_payment_id) {
+                    throw new Error('No payment ID received');
+                  }
+
+                  const verificationData = {
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_order_id: response.razorpay_order_id || order.id,
+                    razorpay_signature: response.razorpay_signature || 'payment_verified'
+                  };
+
                   try {
-                    await maintenanceAPI.simulatePayment(bill._id);
-                    console.log('✅ Payment marked as paid via simulate');
-                    toast.success('Payment completed successfully!');
+                    await maintenanceAPI.verifyPayment(bill._id, verificationData);
+                    toast.success('Payment successful!');
                     fetchBills();
                     resolve();
-                  } catch (simulateError) {
-                    console.error('❌ Simulate payment also failed:', simulateError);
-                    toast.error('Payment completed but could not verify. Please contact support.');
-                    reject(simulateError);
+                  } catch (verifyError) {
+                    try {
+                      await maintenanceAPI.simulatePayment(bill._id);
+                      toast.success('Payment completed successfully!');
+                      fetchBills();
+                      resolve();
+                    } catch (simulateError) {
+                      toast.error('Payment completed but could not verify. Please contact support.');
+                      reject(simulateError);
+                    }
                   }
+
+                } catch (error) {
+                  toast.error(error.message || 'Payment process failed');
+                  reject(error);
                 }
-
-              } catch (error) {
-                console.error('❌ Payment handler error:', error);
-                toast.error(error.message || 'Payment process failed');
-                reject(error);
+              },
+              prefill: {
+                name: user?.fullName || '',
+                email: user?.email || '',
+                contact: user?.phoneNo || ''
+              },
+              theme: { 
+                color: '#10B981' 
+              },
+              modal: {
+                ondismiss: function() {
+                  toast.info('Payment cancelled');
+                  reject(new Error('Payment cancelled by user'));
+                }
               }
-            },
-            prefill: {
-              name: user?.fullName || '',
-              email: user?.email || '',
-              contact: user?.phoneNo || ''
-            },
-            theme: { 
-              color: '#10B981' 
-            },
-            modal: {
-              ondismiss: function() {
-                console.log('Payment modal dismissed');
-                toast.info('Payment cancelled');
-                reject(new Error('Payment cancelled by user'));
-              }
-            }
-          };
+            };
 
-          const razorpayInstance = new window.Razorpay(options);
-          
-          razorpayInstance.on('payment.failed', function (response) {
-            console.error('❌ Payment failed:', response.error);
-            toast.error(`Payment failed: ${response.error.description}`);
-            reject(new Error(response.error.description));
-          });
-          
-          razorpayInstance.open();
-          
-        } catch (error) {
-          console.error('Razorpay initialization error:', error);
-          reject(error);
-        }
-      };
+            const razorpayInstance = new window.Razorpay(options);
+            
+            razorpayInstance.on('payment.failed', function (response) {
+              toast.error(`Payment failed: ${response.error.description}`);
+              reject(new Error(response.error.description));
+            });
+            
+            razorpayInstance.open();
+            
+          } catch (error) {
+            reject(error);
+          }
+        };
 
-      script.onerror = () => {
-        reject(new Error('Failed to load Razorpay'));
-      };
+        script.onerror = () => {
+          reject(new Error('Failed to load Razorpay'));
+        };
 
-      document.body.appendChild(script);
-    });
+        document.body.appendChild(script);
+      });
 
-  } catch (error) {
-    console.error('Payment process error:', error);
-    
-    if (!error.message.includes('cancelled by user')) {
-      toast.error(error.response?.data?.message || 'Payment process failed');
+    } catch (error) {
+      if (!error.message.includes('cancelled by user')) {
+        toast.error(error.response?.data?.message || 'Payment process failed');
+      }
+    } finally {
+      setPaymentLoading(null);
     }
-    
-  } finally {
-    setPaymentLoading(null);
-  }
-};
+  };
 
   const resetForm = () => {
     setFormData({

@@ -14,65 +14,15 @@ try {
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_SECRET
   });
-  console.log('✅ Razorpay initialized successfully');
 } catch (error) {
-  console.error('❌ Razorpay initialization failed:', error.message);
+  console.error('Razorpay initialization failed:', error.message);
   razorpay = null;
 }
-
-// Add this to your auth routes or maintenance routes
-router.get('/debug/users', protect, async (req, res) => {
-  try {
-    const allUsers = await User.find({}, 'fullName email wing flatNo role');
-    
-    console.log('🔍 ALL USERS IN DATABASE:');
-    allUsers.forEach(user => {
-      console.log(`User: ${user.fullName} | ID: ${user._id} | Wing/Flat: ${user.wing}-${user.flatNo} | Role: ${user.role}`);
-    });
-
-    res.status(200).json({
-      success: true,
-      data: allUsers
-    });
-  } catch (error) {
-    console.error('Debug users error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Add this to find the resident for B-105
-// router.get('/debug/find-resident-b105', protect, async (req, res) => {
-//   try {
-//     const resident = await User.findOne({ 
-//       wing: 'B', 
-//       flatNo: '105',
-//       role: 'resident'
-//     });
-
-//     console.log('🔍 RESIDENT FOR B-105:', resident);
-
-//     res.status(200).json({
-//       success: true,
-//       data: resident
-//     });
-//   } catch (error) {
-//     console.error('Find resident error:', error);
-//     res.status(500).json({
-//       success: false,
-//       message: error.message
-//     });
-//   }
-// });
 
 // Create maintenance bill (Admin only)
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const { wing, flatNo, amount, month, year, dueDate } = req.body;
-
-    console.log('Creating maintenance bill for:', { wing, flatNo, amount, month, year, dueDate });
 
     // Validate required fields
     if (!wing || !flatNo || !amount || !month || !year || !dueDate) {
@@ -88,8 +38,6 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
       flatNo: flatNo,
       role: 'resident'
     });
-
-    console.log('Found resident:', resident);
 
     if (!resident) {
       return res.status(400).json({
@@ -158,51 +106,18 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 });
 
 // Get maintenance bills
-// router.get('/', protect, async (req, res) => {
-//   try {
-//     let maintenanceBills;
-    
-//     if (req.user.role === 'admin') {
-//       maintenanceBills = await Maintenance.find()
-//         .populate('residentId', 'fullName email phoneNo')
-//         .sort({ createdAt: -1 });
-//     } else {
-//       maintenanceBills = await Maintenance.find({ residentId: req.user.id })
-//         .populate('residentId', 'fullName email phoneNo')
-//         .sort({ createdAt: -1 });
-//     }
-    
-//     res.status(200).json({
-//       success: true,
-//       data: maintenanceBills
-//     });
-//   } catch (error) {
-//     console.error('Get maintenance bills error:', error);
-//     res.status(500).json({
-//       success: false,
-//       message: error.message
-//     });
-//   }
-// });
-
-// Get maintenance bills - FIXED VERSION
 router.get('/', protect, async (req, res) => {
   try {
     let maintenanceBills;
     
     if (req.user.role === 'admin') {
       maintenanceBills = await Maintenance.find()
-        .populate('residentId', 'fullName email phoneNo wing flatNo') // ✅ ADD wing and flatNo
+        .populate('residentId', 'fullName email phoneNo wing flatNo')
         .sort({ createdAt: -1 });
     } else {
       maintenanceBills = await Maintenance.find({ residentId: req.user.id })
-        .populate('residentId', 'fullName email phoneNo wing flatNo') // ✅ ADD wing and flatNo
+        .populate('residentId', 'fullName email phoneNo wing flatNo')
         .sort({ createdAt: -1 });
-    }
-    
-    console.log('🔍 Backend: Returning maintenance bills count:', maintenanceBills.length);
-    if (maintenanceBills.length > 0) {
-      console.log('🔍 Backend: First bill resident data:', maintenanceBills[0]?.residentId);
     }
     
     res.status(200).json({
@@ -221,8 +136,6 @@ router.get('/', protect, async (req, res) => {
 // Create Razorpay order
 router.post('/:id/create-order', protect, async (req, res) => {
   try {
-    console.log('Creating Razorpay order for maintenance ID:', req.params.id);
-    
     // Check if Razorpay is configured
     if (!razorpay) {
       return res.status(500).json({
@@ -273,11 +186,7 @@ router.post('/:id/create-order', protect, async (req, res) => {
       }
     };
 
-    console.log('Creating Razorpay order with options:', options);
-    
     const order = await razorpay.orders.create(options);
-    
-    console.log('✅ Razorpay order created successfully:', order.id);
 
     maintenance.razorpayOrderId = order.id;
     maintenance.razorpayOrderDetails = order;
@@ -297,7 +206,7 @@ router.post('/:id/create-order', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Create Razorpay order error:', error);
+    console.error('Create Razorpay order error:', error);
     
     if (error.statusCode === 401) {
       return res.status(500).json({
@@ -331,8 +240,6 @@ router.post('/:id/simulate-payment', protect, async (req, res) => {
       });
     }
 
-    console.log('Simulating payment for maintenance ID:', req.params.id);
-    
     const maintenance = await Maintenance.findById(req.params.id);
     
     if (!maintenance) {
@@ -381,21 +288,14 @@ router.post('/:id/simulate-payment', protect, async (req, res) => {
   }
 });
 
-// FIXED: Payment verification that properly handles authorized payments
+// Payment verification
 router.post('/:id/verify-payment', protect, async (req, res) => {
   try {
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    
-    console.log('🔐 Payment verification request:', {
-      maintenanceId: req.params.id,
-      razorpay_payment_id,
-      razorpay_order_id: razorpay_order_id || 'not_provided'
-    });
 
     const maintenance = await Maintenance.findById(req.params.id);
     
     if (!maintenance) {
-      console.error('❌ Maintenance bill not found:', req.params.id);
       return res.status(404).json({
         success: false,
         message: 'Maintenance bill not found'
@@ -404,7 +304,6 @@ router.post('/:id/verify-payment', protect, async (req, res) => {
 
     // Check if already paid
     if (maintenance.status === 'paid') {
-      console.log('✅ Bill already paid, skipping verification');
       return res.status(200).json({
         success: true,
         message: 'Payment already verified'
@@ -413,22 +312,10 @@ router.post('/:id/verify-payment', protect, async (req, res) => {
 
     // Get payment details from Razorpay
     try {
-      console.log('🔒 Fetching payment details from Razorpay...');
       const payment = await razorpay.payments.fetch(razorpay_payment_id);
-      
-      console.log('📋 Razorpay payment details:', {
-        id: payment.id,
-        status: payment.status,
-        captured: payment.captured,
-        amount: payment.amount,
-        method: payment.method,
-        order_id: payment.order_id
-      });
 
-      // ✅ ACCEPT BOTH AUTHORIZED AND CAPTURED PAYMENTS
+      // ACCEPT BOTH AUTHORIZED AND CAPTURED PAYMENTS
       if (payment.status === 'captured' || payment.status === 'authorized') {
-        
-        console.log('✅ Payment successful - marking as paid');
         
         // Update maintenance record
         maintenance.status = 'paid';
@@ -438,8 +325,6 @@ router.post('/:id/verify-payment', protect, async (req, res) => {
         maintenance.paymentStatus = payment.status;
         await maintenance.save();
 
-        console.log('✅ Payment verified successfully for maintenance:', maintenance._id);
-        
         res.status(200).json({
           success: true,
           message: `Payment verified successfully (Status: ${payment.status})`,
@@ -453,13 +338,11 @@ router.post('/:id/verify-payment', protect, async (req, res) => {
         });
         
       } else if (payment.status === 'failed') {
-        console.error('❌ Payment failed:', payment.error_description);
         res.status(400).json({
           success: false,
           message: `Payment failed: ${payment.error_description}`
         });
       } else {
-        console.error('❌ Payment status not acceptable:', payment.status);
         res.status(400).json({
           success: false,
           message: `Payment not completed. Status: ${payment.status}`
@@ -467,11 +350,10 @@ router.post('/:id/verify-payment', protect, async (req, res) => {
       }
 
     } catch (razorpayError) {
-      console.error('❌ Razorpay API verification failed:', razorpayError);
+      console.error('Razorpay API verification failed:', razorpayError);
       
       // In development, accept the payment anyway
       if (process.env.NODE_ENV !== 'production') {
-        console.log('🛠️ Development mode: Accepting payment based on payment ID');
         maintenance.status = 'paid';
         maintenance.razorpayPaymentId = razorpay_payment_id;
         maintenance.razorpayOrderId = razorpay_order_id || 'dev_verification';
@@ -496,7 +378,7 @@ router.post('/:id/verify-payment', protect, async (req, res) => {
       }
     }
   } catch (error) {
-    console.error('❌ Verify payment error:', error);
+    console.error('Verify payment error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Internal server error during payment verification'
