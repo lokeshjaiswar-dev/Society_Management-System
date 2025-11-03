@@ -312,7 +312,7 @@ router.post('/register', async (req, res) => {
     // Send email in background (don't await)
     sendEmail({
       email: user.email,
-      subject: 'Email Verification OTP - Society Management System',
+      subject: 'Email Verification OTP - SocietyPro',
       message: `Your OTP for email verification is: ${verificationOTP}. This OTP is valid for 10 minutes.`
     }).catch(emailError => {
       // Log email error but don't affect the user registration
