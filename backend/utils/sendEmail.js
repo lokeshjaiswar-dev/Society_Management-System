@@ -281,7 +281,7 @@ const sendEmail = async (options) => {
       </html>
     `;
 
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@societypro.com';
+    const senderEmail = process.env.BREVO_SMTP_USER;
     
     console.log('📨 Sending via Brevo API...');
     
