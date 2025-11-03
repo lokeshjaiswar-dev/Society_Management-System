@@ -27,74 +27,177 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
+  // const fetchDashboardData = async () => {
+  //   try {
+  //     setLoading(true);
       
-      // Fetch all data in parallel with error handling
-      const [flatsRes, noticesRes, complaintsRes, maintenanceRes] = await Promise.allSettled([
-        flatAPI.getAll().catch(err => ({ data: { data: [] } })),
-        noticeAPI.getAll().catch(err => ({ data: { data: [] } })),
-        complaintAPI.getAll().catch(err => ({ data: { data: [] } })),
-        maintenanceAPI.getAll().catch(err => ({ data: { data: [] } }))
-      ]);
+  //     // Fetch all data in parallel with error handling
+  //     const [flatsRes, noticesRes, complaintsRes, maintenanceRes] = await Promise.allSettled([
+  //       flatAPI.getAll().catch(err => ({ data: { data: [] } })),
+  //       noticeAPI.getAll().catch(err => ({ data: { data: [] } })),
+  //       complaintAPI.getAll().catch(err => ({ data: { data: [] } })),
+  //       maintenanceAPI.getAll().catch(err => ({ data: { data: [] } }))
+  //     ]);
 
-      // Extract data safely
-      const flats = flatsRes.status === 'fulfilled' ? flatsRes.value?.data?.data || [] : [];
-      const notices = noticesRes.status === 'fulfilled' ? noticesRes.value?.data?.data || [] : [];
-      const complaints = complaintsRes.status === 'fulfilled' ? complaintsRes.value?.data?.data || [] : [];
-      const maintenance = maintenanceRes.status === 'fulfilled' ? maintenanceRes.value?.data?.data || [] : [];
+  //     // Extract data safely
+  //     const flats = flatsRes.status === 'fulfilled' ? flatsRes.value?.data?.data || [] : [];
+  //     const notices = noticesRes.status === 'fulfilled' ? noticesRes.value?.data?.data || [] : [];
+  //     const complaints = complaintsRes.status === 'fulfilled' ? complaintsRes.value?.data?.data || [] : [];
+  //     const maintenance = maintenanceRes.status === 'fulfilled' ? maintenanceRes.value?.data?.data || [] : [];
 
-      console.log('📊 Maintenance data for dashboard:', maintenance); // Debug log
+  //     console.log('📊 Maintenance data for dashboard:', maintenance); // Debug log
 
-      // Calculate stats safely
-      const totalFlats = Array.isArray(flats) ? flats.length : 0;
-      const occupiedFlats = Array.isArray(flats) ? flats.filter(flat => flat?.status === 'occupied').length : 0;
+  //     // Calculate stats safely
+  //     const totalFlats = Array.isArray(flats) ? flats.length : 0;
+  //     const occupiedFlats = Array.isArray(flats) ? flats.filter(flat => flat?.status === 'occupied').length : 0;
       
-      const pendingComplaints = Array.isArray(complaints) ? 
-        complaints.filter(comp => comp?.status === 'pending').length : 0;
+  //     const pendingComplaints = Array.isArray(complaints) ? 
+  //       complaints.filter(comp => comp?.status === 'pending').length : 0;
       
-      // ✅ FIXED: Properly check residentId for unpaid maintenance
-      const unpaidMaintenance = user?.role === 'admin' 
-        ? (Array.isArray(maintenance) ? maintenance.filter(m => m?.status === 'pending').length : 0)
-        : (Array.isArray(maintenance) ? maintenance.filter(m => {
-            // Check both possible structures: m.residentId (ObjectId) or m.residentId._id
-            const residentId = m?.residentId?._id || m?.residentId;
-            return residentId === user?.id && m?.status === 'pending';
-          }).length : 0);
+  //     // ✅ FIXED: Properly check residentId for unpaid maintenance
+  //     const unpaidMaintenance = user?.role === 'admin' 
+  //       ? (Array.isArray(maintenance) ? maintenance.filter(m => m?.status === 'pending').length : 0)
+  //       : (Array.isArray(maintenance) ? maintenance.filter(m => {
+  //           // Check both possible structures: m.residentId (ObjectId) or m.residentId._id
+  //           const residentId = m?.residentId?._id || m?.residentId;
+  //           return residentId === user?.id && m?.status === 'pending';
+  //         }).length : 0);
 
-      console.log('💰 Unpaid maintenance count:', unpaidMaintenance); // Debug log
+  //     console.log('💰 Unpaid maintenance count:', unpaidMaintenance); // Debug log
 
-      setStats({
-        totalFlats,
-        occupiedFlats,
-        pendingComplaints,
-        unpaidMaintenance,
-        recentNotices: Array.isArray(notices) ? notices.length : 0
-      });
+  //     setStats({
+  //       totalFlats,
+  //       occupiedFlats,
+  //       pendingComplaints,
+  //       unpaidMaintenance,
+  //       recentNotices: Array.isArray(notices) ? notices.length : 0
+  //     });
 
-      // Set recent data safely
-      setRecentNotices(Array.isArray(notices) ? notices.slice(0, 5) : []);
-      setRecentComplaints(Array.isArray(complaints) ? complaints.slice(0, 5) : []);
+  //     // Set recent data safely
+  //     setRecentNotices(Array.isArray(notices) ? notices.slice(0, 5) : []);
+  //     setRecentComplaints(Array.isArray(complaints) ? complaints.slice(0, 5) : []);
 
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+  //   } catch (error) {
+  //     console.error('Error fetching dashboard data:', error);
+  //     toast.error('Failed to load dashboard data');
       
-      // Set default empty state on error
-      setStats({
-        totalFlats: 0,
-        occupiedFlats: 0,
-        pendingComplaints: 0,
-        unpaidMaintenance: 0,
-        recentNotices: 0
-      });
-      setRecentNotices([]);
-      setRecentComplaints([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     // Set default empty state on error
+  //     setStats({
+  //       totalFlats: 0,
+  //       occupiedFlats: 0,
+  //       pendingComplaints: 0,
+  //       unpaidMaintenance: 0,
+  //       recentNotices: 0
+  //     });
+  //     setRecentNotices([]);
+  //     setRecentComplaints([]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+const fetchDashboardData = async () => {
+  try {
+    setLoading(true);
+    
+    // Fetch all data in parallel with error handling
+    const [flatsRes, noticesRes, complaintsRes, maintenanceRes] = await Promise.allSettled([
+      flatAPI.getAll().catch(err => ({ data: { data: [] } })),
+      noticeAPI.getAll().catch(err => ({ data: { data: [] } })),
+      complaintAPI.getAll().catch(err => ({ data: { data: [] } })),
+      maintenanceAPI.getAll().catch(err => ({ data: { data: [] } }))
+    ]);
+
+    // Extract data safely
+    const flats = flatsRes.status === 'fulfilled' ? flatsRes.value?.data?.data || [] : [];
+    const notices = noticesRes.status === 'fulfilled' ? noticesRes.value?.data?.data || [] : [];
+    const complaints = complaintsRes.status === 'fulfilled' ? complaintsRes.value?.data?.data || [] : [];
+    const maintenance = maintenanceRes.status === 'fulfilled' ? maintenanceRes.value?.data?.data || [] : [];
+
+    console.log('📊 Maintenance data for dashboard:', maintenance);
+    console.log('👤 Current user:', user);
+
+    // Calculate stats safely
+    const totalFlats = Array.isArray(flats) ? flats.length : 0;
+    const occupiedFlats = Array.isArray(flats) ? flats.filter(flat => flat?.status === 'occupied').length : 0;
+    
+    const pendingComplaints = Array.isArray(complaints) ? 
+      complaints.filter(comp => comp?.status === 'pending').length : 0;
+    
+    // ✅ FIXED: Better maintenance count logic for both localhost and production
+    const unpaidMaintenance = Array.isArray(maintenance) ? maintenance.filter(maintenanceItem => {
+      // For admin: count all pending maintenance
+      if (user?.role === 'admin') {
+        return maintenanceItem?.status === 'pending';
+      }
+      
+      // For resident: count their pending maintenance
+      // Handle different data structures:
+      const residentId = maintenanceItem?.residentId;
+      const flatInfo = maintenanceItem?.flat;
+      
+      // Case 1: Direct residentId match (string or ObjectId)
+      if (residentId) {
+        const residentIdStr = residentId._id ? residentId._id.toString() : residentId.toString();
+        if (residentIdStr === user?.id) {
+          return maintenanceItem?.status === 'pending';
+        }
+      }
+      
+      // Case 2: Flat info match (wing and flatNo)
+      if (flatInfo && user?.wing && user?.flatNo) {
+        const matchesWing = flatInfo.wing?.toUpperCase() === user.wing.toUpperCase();
+        const matchesFlatNo = flatInfo.flatNo?.toString() === user.flatNo.toString();
+        if (matchesWing && matchesFlatNo) {
+          return maintenanceItem?.status === 'pending';
+        }
+      }
+      
+      // Case 3: Check if residentId is populated with user data
+      if (residentId && typeof residentId === 'object') {
+        const matchesWing = residentId.wing?.toUpperCase() === user.wing.toUpperCase();
+        const matchesFlatNo = residentId.flatNo?.toString() === user.flatNo.toString();
+        if (matchesWing && matchesFlatNo) {
+          return maintenanceItem?.status === 'pending';
+        }
+      }
+      
+      return false;
+    }).length : 0;
+
+    console.log('💰 Unpaid maintenance count:', unpaidMaintenance);
+    console.log('🔍 Maintenance items checked:', maintenance.length);
+
+    setStats({
+      totalFlats,
+      occupiedFlats,
+      pendingComplaints,
+      unpaidMaintenance,
+      recentNotices: Array.isArray(notices) ? notices.length : 0
+    });
+
+    // Set recent data safely
+    setRecentNotices(Array.isArray(notices) ? notices.slice(0, 5) : []);
+    setRecentComplaints(Array.isArray(complaints) ? complaints.slice(0, 5) : []);
+
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    toast.error('Failed to load dashboard data');
+    
+    // Set default empty state on error
+    setStats({
+      totalFlats: 0,
+      occupiedFlats: 0,
+      pendingComplaints: 0,
+      unpaidMaintenance: 0,
+      recentNotices: 0
+    });
+    setRecentNotices([]);
+    setRecentComplaints([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const StatCard = ({ title, value, icon: Icon, trend, description, color = 'emerald' }) => {
     // Safe color classes
