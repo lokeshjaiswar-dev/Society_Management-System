@@ -96,11 +96,10 @@ const Dashboard = () => {
   //   }
   // };
 
-const fetchDashboardData = async () => {
+ const fetchDashboardData = async () => {
   try {
     setLoading(true);
     
-    // Fetch all data in parallel with error handling
     const [flatsRes, noticesRes, complaintsRes, maintenanceRes] = await Promise.allSettled([
       flatAPI.getAll().catch(err => ({ data: { data: [] } })),
       noticeAPI.getAll().catch(err => ({ data: { data: [] } })),
@@ -108,14 +107,17 @@ const fetchDashboardData = async () => {
       maintenanceAPI.getAll().catch(err => ({ data: { data: [] } }))
     ]);
 
-    // Extract data safely
+    // ✅ FIXED: Handle different response structures
     const flats = flatsRes.status === 'fulfilled' ? flatsRes.value?.data?.data || [] : [];
     const notices = noticesRes.status === 'fulfilled' ? noticesRes.value?.data?.data || [] : [];
     const complaints = complaintsRes.status === 'fulfilled' ? complaintsRes.value?.data?.data || [] : [];
-    const maintenance = maintenanceRes.status === 'fulfilled' ? maintenanceRes.value?.data?.data || [] : [];
+    
+    // ✅ FIXED: Maintenance might return data directly or data.data
+    const maintenanceResponse = maintenanceRes.status === 'fulfilled' ? maintenanceRes.value?.data : null;
+    const maintenance = maintenanceResponse?.data || maintenanceResponse || [];
 
-    console.log('📊 Maintenance data for dashboard:', maintenance);
-    console.log('👤 Current user:', user);
+    console.log('📊 Maintenance API response:', maintenanceResponse);
+    console.log('📊 Extracted maintenance data:', maintenance);
 
     // Calculate stats safely
     const totalFlats = Array.isArray(flats) ? flats.length : 0;
@@ -124,7 +126,7 @@ const fetchDashboardData = async () => {
     const pendingComplaints = Array.isArray(complaints) ? 
       complaints.filter(comp => comp?.status === 'pending').length : 0;
     
-    // ✅ FIXED: Better maintenance count logic for both localhost and production
+    // ✅ FIXED: Maintenance count with proper data structure
     const unpaidMaintenance = Array.isArray(maintenance) ? maintenance.filter(maintenanceItem => {
       // For admin: count all pending maintenance
       if (user?.role === 'admin') {
@@ -132,32 +134,12 @@ const fetchDashboardData = async () => {
       }
       
       // For resident: count their pending maintenance
-      // Handle different data structures:
       const residentId = maintenanceItem?.residentId;
-      const flatInfo = maintenanceItem?.flat;
       
-      // Case 1: Direct residentId match (string or ObjectId)
+      // Handle different residentId structures
       if (residentId) {
         const residentIdStr = residentId._id ? residentId._id.toString() : residentId.toString();
         if (residentIdStr === user?.id) {
-          return maintenanceItem?.status === 'pending';
-        }
-      }
-      
-      // Case 2: Flat info match (wing and flatNo)
-      if (flatInfo && user?.wing && user?.flatNo) {
-        const matchesWing = flatInfo.wing?.toUpperCase() === user.wing.toUpperCase();
-        const matchesFlatNo = flatInfo.flatNo?.toString() === user.flatNo.toString();
-        if (matchesWing && matchesFlatNo) {
-          return maintenanceItem?.status === 'pending';
-        }
-      }
-      
-      // Case 3: Check if residentId is populated with user data
-      if (residentId && typeof residentId === 'object') {
-        const matchesWing = residentId.wing?.toUpperCase() === user.wing.toUpperCase();
-        const matchesFlatNo = residentId.flatNo?.toString() === user.flatNo.toString();
-        if (matchesWing && matchesFlatNo) {
           return maintenanceItem?.status === 'pending';
         }
       }
@@ -166,7 +148,7 @@ const fetchDashboardData = async () => {
     }).length : 0;
 
     console.log('💰 Unpaid maintenance count:', unpaidMaintenance);
-    console.log('🔍 Maintenance items checked:', maintenance.length);
+    console.log('🔍 Total maintenance items:', maintenance.length);
 
     setStats({
       totalFlats,
@@ -184,7 +166,6 @@ const fetchDashboardData = async () => {
     console.error('Error fetching dashboard data:', error);
     toast.error('Failed to load dashboard data');
     
-    // Set default empty state on error
     setStats({
       totalFlats: 0,
       occupiedFlats: 0,
