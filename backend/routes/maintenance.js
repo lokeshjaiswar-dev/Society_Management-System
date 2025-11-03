@@ -44,28 +44,28 @@ router.get('/debug/users', protect, async (req, res) => {
 });
 
 // Add this to find the resident for B-105
-router.get('/debug/find-resident-b105', protect, async (req, res) => {
-  try {
-    const resident = await User.findOne({ 
-      wing: 'B', 
-      flatNo: '105',
-      role: 'resident'
-    });
+// router.get('/debug/find-resident-b105', protect, async (req, res) => {
+//   try {
+//     const resident = await User.findOne({ 
+//       wing: 'B', 
+//       flatNo: '105',
+//       role: 'resident'
+//     });
 
-    console.log('🔍 RESIDENT FOR B-105:', resident);
+//     console.log('🔍 RESIDENT FOR B-105:', resident);
 
-    res.status(200).json({
-      success: true,
-      data: resident
-    });
-  } catch (error) {
-    console.error('Find resident error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+//     res.status(200).json({
+//       success: true,
+//       data: resident
+//     });
+//   } catch (error) {
+//     console.error('Find resident error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message
+//     });
+//   }
+// });
 
 // Create maintenance bill (Admin only)
 router.post('/', protect, authorize('admin'), async (req, res) => {

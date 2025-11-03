@@ -125,37 +125,37 @@ const fetchBills = async () => {
   }
 };
 
-// Add this to your Maintenance component
-useEffect(() => {
-  console.log('🔐 CURRENT USER DETAILS:', {
-    id: user?.id,
-    fullName: user?.fullName,
-    email: user?.email, 
-    wing: user?.wing,
-    flatNo: user?.flatNo,
-    role: user?.role
-  });
+// // Add this to your Maintenance component
+// useEffect(() => {
+//   console.log('🔐 CURRENT USER DETAILS:', {
+//     id: user?.id,
+//     fullName: user?.fullName,
+//     email: user?.email, 
+//     wing: user?.wing,
+//     flatNo: user?.flatNo,
+//     role: user?.role
+//   });
   
-  fetchBills();
-}, [user]);
+//   fetchBills();
+// }, [user]);
 
-// Temporary test in your Maintenance component
-const checkAllUsers = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch('https://society-backend-9n7y.onrender.com/api/maintenance/debug/users', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+// // Temporary test in your Maintenance component
+// const checkAllUsers = async () => {
+//   try {
+//     const token = localStorage.getItem('token');
+//     const response = await fetch('https://society-backend-9n7y.onrender.com/api/maintenance/debug/users', {
+//       headers: {
+//         'Authorization': `Bearer ${token}`,
+//         'Content-Type': 'application/json'
+//       }
+//     });
     
-    const data = await response.json();
-    console.log('🔍 ALL USERS:', data);
-  } catch (error) {
-    console.error('Debug users error:', error);
-  }
-};
+//     const data = await response.json();
+//     console.log('🔍 ALL USERS:', data);
+//   } catch (error) {
+//     console.error('Debug users error:', error);
+//   }
+// };
 
 // Call it in useEffect
 useEffect(() => {
