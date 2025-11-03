@@ -50,25 +50,57 @@ const Maintenance = () => {
     }
   }, [user]);
 
+  // const fetchBills = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const response = await maintenanceAPI.getAll();
+      
+  //     let billsData = [];
+  //     if (response?.data) {
+  //       billsData = response.data.data || response.data.bills || response.data.maintenanceBills || response.data;
+  //     }
+      
+  //     setBills(Array.isArray(billsData) ? billsData : []);
+  //   } catch (error) {
+  //     console.error('Error fetching maintenance bills:', error);
+  //     toast.error('Failed to load maintenance bills');
+  //     setBills([]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const fetchBills = async () => {
-    try {
-      setLoading(true);
-      const response = await maintenanceAPI.getAll();
-      
-      let billsData = [];
-      if (response?.data) {
-        billsData = response.data.data || response.data.bills || response.data.maintenanceBills || response.data;
-      }
-      
-      setBills(Array.isArray(billsData) ? billsData : []);
-    } catch (error) {
-      console.error('Error fetching maintenance bills:', error);
-      toast.error('Failed to load maintenance bills');
-      setBills([]);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const response = await maintenanceAPI.getAll();
+    
+    console.log('🔍 MAINTENANCE API RAW RESPONSE:', response);
+    console.log('📊 RESPONSE DATA:', response.data);
+    
+    let billsData = [];
+    
+    // ✅ FIXED: Handle different response structures
+    if (response?.data) {
+      // Try different possible response structures
+      billsData = response.data.data || response.data.bills || response.data.maintenanceBills || response.data;
     }
-  };
+    
+    console.log('📊 EXTRACTED BILLS DATA:', billsData);
+    
+    // Ensure it's an array
+    setBills(Array.isArray(billsData) ? billsData : []);
+    
+    console.log('✅ FINAL BILLS COUNT:', Array.isArray(billsData) ? billsData.length : 0);
+    
+  } catch (error) {
+    console.error('❌ Error fetching maintenance bills:', error);
+    toast.error('Failed to load maintenance bills');
+    setBills([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchFlats = async () => {
     try {
