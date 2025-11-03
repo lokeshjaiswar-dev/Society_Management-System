@@ -4,30 +4,62 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const sendEmail = async (options) => {
+  let transporter;
+  
   try {
-    // Enhanced transporter configuration for production
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587, // Use 587 for production
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD // MUST be App Password
+    // Try multiple configurations for production
+    const transporterConfigs = [
+      // Try SSL first (port 465)
+      {
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // true for port 465
+        auth: {
+          user: process.env.EMAIL_USERNAME,
+          pass: process.env.EMAIL_PASSWORD
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
       },
-      // Production-specific settings
-      tls: {
-        rejectUnauthorized: false // Important for some hosting environments
-      },
-      connectionTimeout: 60000, // 60 seconds
-      greetingTimeout: 30000,
-      socketTimeout: 60000,
-      debug: true, // Enable debug to see what's happening
-      logger: true
-    });
+      // Fallback to STARTTLS (port 587)
+      {
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // false for port 587
+        auth: {
+          user: process.env.EMAIL_USERNAME,
+          pass: process.env.EMAIL_PASSWORD
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      }
+    ];
 
-    // Verify connection with better error handling
-    await transporter.verify();
-    console.log('✅ SMTP connection verified');
+    let lastError;
+    
+    // Try each configuration
+    for (const config of transporterConfigs) {
+      try {
+        console.log(`🔧 Trying SMTP config: ${config.host}:${config.port} (secure: ${config.secure})`);
+        
+        transporter = nodemailer.createTransport(config);
+        
+        // Test connection with shorter timeout
+        await transporter.verify();
+        console.log(`✅ SMTP connection successful on port ${config.port}`);
+        break; // Success, exit loop
+      } catch (error) {
+        lastError = error;
+        console.log(`❌ Failed on port ${config.port}:`, error.message);
+        continue; // Try next configuration
+      }
+    }
+
+    if (!transporter) {
+      throw lastError || new Error('All SMTP configurations failed');
+    }
 
     const otpMatch = options.message.match(/\b\d{4,6}\b/);
     const otp = otpMatch ? otpMatch[0] : '';
@@ -124,7 +156,6 @@ const sendEmail = async (options) => {
       subject: options.subject,
       text: options.message,
       html: htmlTemplate,
-      // Add priority headers
       headers: {
         'X-Priority': '1',
         'X-MSMail-Priority': 'High',
@@ -133,27 +164,17 @@ const sendEmail = async (options) => {
     };
 
     console.log('📧 Attempting to send email to:', options.email);
-    console.log('🔧 Using email service:', process.env.EMAIL_USERNAME);
     
     const info = await transporter.sendMail(mailOptions);
     console.log('✅ Email sent successfully to:', options.email);
     console.log('📧 Message ID:', info.messageId);
-    console.log('📨 Response:', info.response);
     
     return info;
   } catch (error) {
     console.error('❌ Error sending email:', error.message);
-    console.error('🔧 Error code:', error.code);
-    console.error('🔧 Error command:', error.command);
+    console.error('🔧 Error details:', error);
     
-    // More specific error messages
-    if (error.code === 'EAUTH') {
-      throw new Error('Email authentication failed. Check your email credentials and App Password.');
-    } else if (error.code === 'ECONNECTION') {
-      throw new Error('Could not connect to email server. Check your network and SMTP settings.');
-    } else {
-      throw new Error(`Email could not be sent: ${error.message}`);
-    }
+    throw new Error(`Email could not be sent: ${error.message}`);
   }
 };
 
