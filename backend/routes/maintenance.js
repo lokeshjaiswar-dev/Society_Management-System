@@ -111,18 +111,51 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 });
 
 // Get maintenance bills
+// router.get('/', protect, async (req, res) => {
+//   try {
+//     let maintenanceBills;
+    
+//     if (req.user.role === 'admin') {
+//       maintenanceBills = await Maintenance.find()
+//         .populate('residentId', 'fullName email phoneNo')
+//         .sort({ createdAt: -1 });
+//     } else {
+//       maintenanceBills = await Maintenance.find({ residentId: req.user.id })
+//         .populate('residentId', 'fullName email phoneNo')
+//         .sort({ createdAt: -1 });
+//     }
+    
+//     res.status(200).json({
+//       success: true,
+//       data: maintenanceBills
+//     });
+//   } catch (error) {
+//     console.error('Get maintenance bills error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message
+//     });
+//   }
+// });
+
+// Get maintenance bills - FIXED VERSION
 router.get('/', protect, async (req, res) => {
   try {
     let maintenanceBills;
     
     if (req.user.role === 'admin') {
       maintenanceBills = await Maintenance.find()
-        .populate('residentId', 'fullName email phoneNo')
+        .populate('residentId', 'fullName email phoneNo wing flatNo') // ✅ ADD wing and flatNo
         .sort({ createdAt: -1 });
     } else {
       maintenanceBills = await Maintenance.find({ residentId: req.user.id })
-        .populate('residentId', 'fullName email phoneNo')
+        .populate('residentId', 'fullName email phoneNo wing flatNo') // ✅ ADD wing and flatNo
         .sort({ createdAt: -1 });
+    }
+    
+    console.log('🔍 Backend: Returning maintenance bills count:', maintenanceBills.length);
+    if (maintenanceBills.length > 0) {
+      console.log('🔍 Backend: First bill resident data:', maintenanceBills[0]?.residentId);
     }
     
     res.status(200).json({

@@ -70,28 +70,51 @@ const Maintenance = () => {
   //   }
   // };
 
-  const fetchBills = async () => {
+const fetchBills = async () => {
   try {
     setLoading(true);
     const response = await maintenanceAPI.getAll();
     
     console.log('🔍 MAINTENANCE API RAW RESPONSE:', response);
-    console.log('📊 RESPONSE DATA:', response.data);
     
     let billsData = [];
     
-    // ✅ FIXED: Handle different response structures
-    if (response?.data) {
-      // Try different possible response structures
-      billsData = response.data.data || response.data.bills || response.data.maintenanceBills || response.data;
+    // ✅ FIXED: Properly extract the data
+    if (response?.data?.success) {
+      billsData = response.data.data; // This should be the array
     }
     
     console.log('📊 EXTRACTED BILLS DATA:', billsData);
+    console.log('👤 CURRENT USER ID:', user?.id);
     
-    // Ensure it's an array
-    setBills(Array.isArray(billsData) ? billsData : []);
-    
-    console.log('✅ FINAL BILLS COUNT:', Array.isArray(billsData) ? billsData.length : 0);
+    // ✅ FIXED: Simple filtering - only match by residentId
+    if (user?.role !== 'admin') {
+      const userBills = billsData.filter(bill => {
+        if (!bill?.residentId) return false;
+        
+        // Direct residentId comparison (no wing/flat matching needed)
+        const residentId = bill.residentId;
+        const residentIdStr = residentId._id ? residentId._id.toString() : residentId.toString();
+        const userIdStr = user?.id?.toString();
+        
+        const matches = residentIdStr === userIdStr;
+        
+        console.log('🔍 Bill Match Check:', {
+          billId: bill._id,
+          billResidentId: residentIdStr,
+          currentUserId: userIdStr,
+          matches: matches
+        });
+        
+        return matches;
+      });
+      
+      console.log('✅ FILTERED USER BILLS:', userBills);
+      setBills(Array.isArray(userBills) ? userBills : []);
+    } else {
+      // Admin sees all bills
+      setBills(Array.isArray(billsData) ? billsData : []);
+    }
     
   } catch (error) {
     console.error('❌ Error fetching maintenance bills:', error);
@@ -101,6 +124,19 @@ const Maintenance = () => {
     setLoading(false);
   }
 };
+
+// Add this to your Maintenance component
+useEffect(() => {
+  console.log('🔐 USER ID DEBUG:');
+  console.log('Frontend User Object:', user);
+  console.log('Frontend User ID:', user?.id);
+  console.log('Frontend User ID Type:', typeof user?.id);
+  
+  fetchBills();
+  if (user?.role === 'admin') {
+    fetchFlats();
+  }
+}, [user]);
 
   const fetchFlats = async () => {
     try {
