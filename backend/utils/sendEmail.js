@@ -180,45 +180,17 @@
 
 // export default sendEmail;
 
-import nodemailer from 'nodemailer';
+import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const sendEmail = async (options) => {
-  let transporter;
-  
   try {
-    console.log('🔧 Starting email process...');
+    console.log('🔧 Starting Brevo API email process...');
     console.log('📧 Recipient:', options.email);
     console.log('📝 Subject:', options.subject);
-    console.log('🔑 SMTP User exists:', !!process.env.BREVO_SMTP_USER);
-    console.log('🔑 SMTP Key exists:', !!process.env.BREVO_SMTP_KEY);
-    console.log('📨 Sender Email exists:', !!process.env.BREVO_SENDER_EMAIL);
-    console.log('📨 Sender Email value:', process.env.BREVO_SENDER_EMAIL);
-
-    // Brevo SMTP configuration
-    transporter = nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.BREVO_SMTP_USER,
-        pass: process.env.BREVO_SMTP_KEY
-      },
-      debug: true, // Enable detailed debugging
-      logger: true, // Log to console
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000,
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
-
-    console.log('🔄 Testing Brevo SMTP connection...');
-    await transporter.verify();
-    console.log('✅ Brevo SMTP connection verified');
+    console.log('🔑 API Key exists:', !!process.env.BREVO_API_KEY);
 
     const otpMatch = options.message.match(/\b\d{4,6}\b/);
     const otp = otpMatch ? otpMatch[0] : '';
@@ -309,45 +281,51 @@ const sendEmail = async (options) => {
       </html>
     `;
 
-    const fromEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_USER;
-    console.log('📨 Using sender email:', fromEmail);
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@societypro.com';
+    
+    console.log('📨 Sending via Brevo API...');
+    
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'SocietyPro',
+          email: senderEmail
+        },
+        to: [
+          {
+            email: options.email,
+            name: options.email.split('@')[0]
+          }
+        ],
+        subject: options.subject,
+        htmlContent: htmlTemplate,
+        textContent: options.message
+      })
+    });
 
-    const mailOptions = {
-      from: `SocietyPro <${fromEmail}>`,
-      to: options.email,
-      subject: options.subject,
-      text: options.message,
-      html: htmlTemplate,
-    };
-
-    console.log('📧 Attempting to send email via Brevo...');
-    console.log('📨 From:', fromEmail);
-    console.log('📬 To:', options.email);
+    const responseData = await response.json();
     
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully via Brevo');
-    console.log('📧 Message ID:', info.messageId);
-    console.log('📨 Response:', info.response);
-    console.log('✅ Email accepted for delivery');
-    
-    return info;
-  } catch (error) {
-    console.error('❌ Brevo Email Error:', error.message);
-    console.error('🔧 Error code:', error.code);
-    console.error('🔧 Error command:', error.command);
-    console.error('🔧 Full error details:', error);
-    
-    // Specific error handling
-    if (error.code === 'EAUTH') {
-      throw new Error('Email authentication failed. Check your Brevo SMTP credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      throw new Error('Could not connect to Brevo SMTP server.');
-    } else if (error.code === 'ETIMEDOUT') {
-      throw new Error('Connection to Brevo timed out.');
-    } else {
-      throw new Error(`Email could not be sent: ${error.message}`);
+    if (!response.ok) {
+      console.error('❌ Brevo API Error Response:', responseData);
+      throw new Error(responseData.message || `Brevo API error: ${response.status}`);
     }
+
+    console.log('✅ Email sent successfully via Brevo API');
+    console.log('📧 Message ID:', responseData.messageId);
+    
+    return responseData;
+  } catch (error) {
+    console.error('❌ Brevo API Error:', error.message);
+    console.error('🔧 Full error:', error);
+    throw new Error(`Email could not be sent: ${error.message}`);
   }
 };
 
 export default sendEmail;
+
