@@ -186,22 +186,37 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const sendEmail = async (options) => {
+  let transporter;
+  
   try {
-    // Brevo SMTP configuration with YOUR credentials
-    const transporter = nodemailer.createTransport({
+    console.log('🔧 Starting email process...');
+    console.log('📧 Recipient:', options.email);
+    console.log('📝 Subject:', options.subject);
+    console.log('🔑 SMTP User exists:', !!process.env.BREVO_SMTP_USER);
+    console.log('🔑 SMTP Key exists:', !!process.env.BREVO_SMTP_KEY);
+    console.log('📨 Sender Email exists:', !!process.env.BREVO_SENDER_EMAIL);
+    console.log('📨 Sender Email value:', process.env.BREVO_SENDER_EMAIL);
+
+    // Brevo SMTP configuration
+    transporter = nodemailer.createTransport({
       host: 'smtp-relay.brevo.com',
       port: 587,
       secure: false,
       auth: {
-        user: process.env.BREVO_SMTP_USER, 
-        pass: process.env.BREVO_SMTP_KEY   
+        user: process.env.BREVO_SMTP_USER,
+        pass: process.env.BREVO_SMTP_KEY
       },
+      debug: true, // Enable detailed debugging
+      logger: true, // Log to console
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
       tls: {
         rejectUnauthorized: false
       }
     });
 
-    console.log('🔧 Testing Brevo SMTP connection...');
+    console.log('🔄 Testing Brevo SMTP connection...');
     await transporter.verify();
     console.log('✅ Brevo SMTP connection verified');
 
@@ -294,24 +309,44 @@ const sendEmail = async (options) => {
       </html>
     `;
 
+    const fromEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_USER;
+    console.log('📨 Using sender email:', fromEmail);
+
     const mailOptions = {
-      from: `SocietyPro <${process.env.BREVO_SMTP_USER}>`, // Using your Brevo sender email
+      from: `SocietyPro <${fromEmail}>`,
       to: options.email,
       subject: options.subject,
       text: options.message,
       html: htmlTemplate,
     };
 
-    console.log('📧 Sending email via Brevo to:', options.email);
+    console.log('📧 Attempting to send email via Brevo...');
+    console.log('📨 From:', fromEmail);
+    console.log('📬 To:', options.email);
     
     const info = await transporter.sendMail(mailOptions);
     console.log('✅ Email sent successfully via Brevo');
     console.log('📧 Message ID:', info.messageId);
+    console.log('📨 Response:', info.response);
+    console.log('✅ Email accepted for delivery');
     
     return info;
   } catch (error) {
     console.error('❌ Brevo Email Error:', error.message);
-    throw new Error(`Email could not be sent: ${error.message}`);
+    console.error('🔧 Error code:', error.code);
+    console.error('🔧 Error command:', error.command);
+    console.error('🔧 Full error details:', error);
+    
+    // Specific error handling
+    if (error.code === 'EAUTH') {
+      throw new Error('Email authentication failed. Check your Brevo SMTP credentials.');
+    } else if (error.code === 'ECONNECTION') {
+      throw new Error('Could not connect to Brevo SMTP server.');
+    } else if (error.code === 'ETIMEDOUT') {
+      throw new Error('Connection to Brevo timed out.');
+    } else {
+      throw new Error(`Email could not be sent: ${error.message}`);
+    }
   }
 };
 
