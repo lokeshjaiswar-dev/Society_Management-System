@@ -23,22 +23,6 @@ const Login = () => {
     }));
   };
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   setLoading(true);
-
-  //   const result = await login(formData.email, formData.password);
-    
-  //   if (result.success) {
-  //     toast.success('Login successful!');
-  //     navigate('/dashboard');
-  //   } else {
-  //     toast.error(result.message);
-  //   }
-    
-  //   setLoading(false);
-  // };
-
   const handleSubmit = async (e) => {
   e.preventDefault();
   setLoading(true);

@@ -207,23 +207,6 @@ const filteredFlats = Array.isArray(flats) ? flats
         </div>
       </div>
 
-      {/* Quick Wing Filters
-        <div className="flex flex-wrap gap-2 mt-3">
-          {['All', 'A', 'B', 'C', 'D', 'E'].map(wing => (
-            <button
-              key={wing}
-              onClick={() => setSearchTerm(wing === 'All' ? '' : wing)}
-              className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-                (wing === 'All' && !searchTerm) || searchTerm === wing
-                  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-800/30'
-                  : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-600'
-              }`}
-            >
-              {wing}
-            </button>
-          ))}
-        </div> */}
-
       {/* Flats Table */}
       <div className="bg-black/50 backdrop-blur-lg rounded-xl border border-emerald-800/30 overflow-hidden">
         <div className="overflow-x-auto">
